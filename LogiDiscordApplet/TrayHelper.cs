@@ -12,6 +12,7 @@ namespace LogiDiscordApplet
 {
     public class TrayHelper
     {
+        public EventHandler onAppExit;
         private NotifyIcon notifyIcon;
 
         public TrayHelper()
@@ -51,6 +52,7 @@ namespace LogiDiscordApplet
 
         private void OnMenuExitClick(object sender, EventArgs e)
         {
+            onAppExit?.Invoke(sender, e);
             ExitApp();
         }
 

@@ -32,8 +32,12 @@ namespace LogiDiscordApplet
         private static LCDPicture lcdHeadsetPic;
         private static LCDMarquee lcdConnectedChannel;
 
-        private static VoiceStateCreate.Data[] lastUsers;
-        private static Dictionary<string, LCDUser> idUserPairs;
+        private static VoiceStateCreate.Data[] currentConnectedUsers;
+        private static LCDUser[] usersOrdered;
+
+        private static Dictionary<string, LCDUser> idLCDUserPairs = new Dictionary<string, LCDUser>();
+
+        private static GetSelectedVoiceChannel.Data connectedChanneldata;
 
         private static string lastChannelID;
         private static string clientUserID;
@@ -48,7 +52,7 @@ namespace LogiDiscordApplet
 
         static async Task Main()
         {
-            idUserPairs = new Dictionary<string, LCDUser>();
+            idLCDUserPairs = new Dictionary<string, LCDUser>();
 
             trayHelper = new TrayHelper();
 
@@ -164,8 +168,8 @@ namespace LogiDiscordApplet
                 await CheckVoiceSettingsStatus();
             }
 
-
-            await UpdateUsers();
+            trayHelper.onAppExit += new EventHandler(OnMenuExitClick);
+            await UpdateUsersAsync();
 
             // A blocking call. Waits for the LCDApp instance to be disposed. (optional)
             lcdApp.WaitForClose();
@@ -200,7 +204,6 @@ namespace LogiDiscordApplet
         {
             EventHandler<VoiceChannelSelect.Data> voiceChannelSelectHandler = async (sender, data) => await OnVoiceChannelSelectAsync(data);
             client.OnVoiceChannelSelect += voiceChannelSelectHandler;
-
             await client.SubscribeAsync(new VoiceChannelSelect.Args());
 
             EventHandler<VoiceConnectionStatus.Data> voiceConnectionStatusHandler = async (sender, data) => await OnVoiceConnectionStatusAsync(data);
@@ -216,13 +219,13 @@ namespace LogiDiscordApplet
             EventHandler<SpeakingStop.Data> speakingStopHandler = async (sender, data) => await OnTalkingUpdateAsync(false, data);
             client.OnSpeakingStop += speakingStopHandler;
 
-            EventHandler<VoiceStateCreate.Data> voiceStateCreateHandler = async (sender, data) => await UpdateUsers();
+            EventHandler<VoiceStateCreate.Data> voiceStateCreateHandler = async (sender, data) => await UpdateUsersAsync();
             client.OnVoiceStateCreate += voiceStateCreateHandler;
 
-            EventHandler<VoiceStateDelete.Data> voiceStateDeleteHandler = async (sender, data) => await UpdateUsers();
+            EventHandler<VoiceStateDelete.Data> voiceStateDeleteHandler = async (sender, data) => await UpdateUsersAsync();
             client.OnVoiceStateDelete += voiceStateDeleteHandler;
 
-            EventHandler<ButtonEventArgs> buttonHandler = (sender, data) => OnPressButtonAsync(data);
+            EventHandler<ButtonEventArgs> buttonHandler = async (sender, data) => await OnPressButtonAsync(data);
             lcdApp.ButtonPress += buttonHandler;
         }
 
@@ -242,31 +245,34 @@ namespace LogiDiscordApplet
                     return;
             }
 
+            await Task.Delay(1);
         }
 
         private static void OnMenuExitClick(object sender, EventArgs e)
         {
             client.Dispose();
-            Environment.Exit(Environment.ExitCode);
         }
 
         private static async Task OnTalkingUpdateAsync(bool talking, SpeakingStart.Data data)
         {
             if (data == null || data.user_id == null) return;
-            if (!idUserPairs.ContainsKey(data.user_id)) await UpdateUsers();
-            if (!idUserPairs.ContainsKey(data.user_id)) return;
+            if (!idLCDUserPairs.ContainsKey(data.user_id)) await UpdateUsersAsync();
+            if (!idLCDUserPairs.ContainsKey(data.user_id)) return;
 
-            idUserPairs[data.user_id].IsTalking = talking;
+            idLCDUserPairs[data.user_id].IsTalking = talking;
 
-            await UpdateUIAsync();
+            UpdateUI();
         }
 
-        private static async Task UpdateUIAsync()
+        private static async Task UpdateChannel()
         {
-            GetSelectedVoiceChannel.Data connectedChanneldata = await client.SendCommandAsync(new GetSelectedVoiceChannel.Args());
+            connectedChanneldata = await client.SendCommandAsync(new GetSelectedVoiceChannel.Args());
             lcdConnectedChannel.Text = "Connected: " + connectedChanneldata.name;
+        }
 
-            LCDUser[] usersOrdered = idUserPairs.Values.ToArray();
+        private static void UpdateUI()
+        {
+            usersOrdered = idLCDUserPairs.Values.ToArray();
             usersOrdered = usersOrdered.OrderByDescending(x => x.LastTimeTalked).ToArray();
 
             int count = 0;
@@ -344,9 +350,8 @@ namespace LogiDiscordApplet
                 channel_id = lastChannelID
             });
 
-            PushForegroundForAMoment();
-
-            await UpdateUsers();
+            await UpdateChannel();
+            await UpdateUsersAsync();
         }
 
         private static void OnVoiceStateUpdate(VoiceStateUpdate.Data data)
@@ -397,6 +402,7 @@ namespace LogiDiscordApplet
 
                 lastChannelID = connectedChdata.id;
 
+                //await UpdateChannel(); Channel will be updated with OnVoiceChannelSelectAsync
                 await OnVoiceChannelSelectAsync(tempData);
             }
             else
@@ -405,71 +411,43 @@ namespace LogiDiscordApplet
             }
         }
 
-        private static async Task UpdateUsers()
+        private static async Task UpdateUsersAsync()
         {
-            GetSelectedVoiceChannel.Data data = await client.SendCommandAsync(new GetSelectedVoiceChannel.Args());
-            if(data == null) return;
+            if (connectedChanneldata == null) await UpdateChannel();
+            if (connectedChanneldata == null) return;
 
-            await UpdateUsers(data.voice_states.ToArray());
+            UpdateUsers(connectedChanneldata.voice_states.ToArray());
         }
 
-        private static async Task UpdateUsers(VoiceStateCreate.Data[] voiceStates)
+        private static void UpdateUsers(VoiceStateCreate.Data[] voiceStates)
         {
             if (voiceStates == null || voiceStates.Length == 0) return;
-            if (lastUsers != null && lastUsers.Equals(voiceStates)) return;
+            if (currentConnectedUsers != null && currentConnectedUsers.Equals(voiceStates)) return;
 
-            lastUsers = voiceStates;
+            currentConnectedUsers = voiceStates;
 
-            if (idUserPairs == null) idUserPairs = new Dictionary<string, LCDUser>();
+            List<String> obseleteUsersID = new List<string>(idLCDUserPairs.Keys);
+            List<VoiceStateCreate.Data> connectedUsersList = new List<VoiceStateCreate.Data>(currentConnectedUsers);
 
-            List<String> fakeUsersKey = new List<string>(idUserPairs.Keys);
-            List<VoiceStateCreate.Data> fakeUsers = new List<VoiceStateCreate.Data>(lastUsers);
-
-            bool found;
-            foreach (string _userKey in fakeUsersKey)
+            foreach (string _obseleteUserID in obseleteUsersID)
             {
 
-                if (_userKey.Equals(clientUserID)) continue;
+                if (_obseleteUserID.Equals(clientUserID)) continue; // Don't check host user
 
-                found = false;
-
-                foreach (VoiceStateCreate.Data data in fakeUsers)
+                if (connectedUsersList.FirstOrDefault(x => x.user.id.Equals(obseleteUsersID)) == null)
                 {
-                    if (_userKey.Equals(data.user.id))
-                    {
-                        fakeUsers.Remove(data);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                {
-                    if (!idUserPairs.ContainsKey(_userKey)) continue;
-                    idUserPairs[_userKey].Destroy();
-                    idUserPairs.Remove(_userKey);
+                    if (!idLCDUserPairs.ContainsKey(_obseleteUserID)) continue;
+                    idLCDUserPairs[_obseleteUserID].DestroyUI();
+                    idLCDUserPairs.Remove(_obseleteUserID);
                 }
             }
 
-            foreach (VoiceStateCreate.Data userData in lastUsers)
+            foreach (VoiceStateCreate.Data userData in currentConnectedUsers)
             {
                 AddUser(userData);
             }
 
-            await UpdateUIAsync();
-
-            PushForegroundForAMoment();
-        }
-
-        private static void PushForegroundForAMoment()
-        {
-            /* if (LCDApp.)
-            {
-                lcdApp.PushToForeground();
-                SendToBackground();
-            } */
-
-            return;
+            UpdateUI();
         }
 
         private static void AddUser(VoiceStateCreate.Data userData)
@@ -480,21 +458,8 @@ namespace LogiDiscordApplet
 
         private static void AddUser(string id, string username, string avatar)
         {
-            if (idUserPairs.ContainsKey(id)) return;
-            idUserPairs.Add(id, new LCDUser(id, username, avatar));
-        }
-
-        private static void SendToBackground()
-        {
-            Task.Factory.StartNew(() =>
-            {
-                bgTime = DateTime.Now.AddSeconds(bgAfter / 1000);
-                while (bgTime > DateTime.Now)
-                {
-                    Thread.Sleep(bgAfter / 4);
-                }
-                lcdApp.PushToBackground();
-            });
+            if (idLCDUserPairs.ContainsKey(id)) return;
+            idLCDUserPairs.Add(id, new LCDUser(id, username, avatar));
         }
     }
 }

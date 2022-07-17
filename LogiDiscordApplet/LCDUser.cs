@@ -70,7 +70,7 @@ namespace LogiDiscordApplet
         }
         ~LCDUser()
         {
-            Destroy();
+            DestroyUI();
         }
 
         public void SetLocation(Point _point)
@@ -80,7 +80,7 @@ namespace LogiDiscordApplet
             lcdTitle.Location = new Point(lcdPicture.Location.X + 10, _point.Y);
         }
 
-        public void Destroy()
+        public void DestroyUI()
         {
             IsVisible = false;
             lcdPicture.Visible = false;
