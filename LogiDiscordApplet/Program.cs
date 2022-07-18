@@ -21,9 +21,8 @@ namespace LogiDiscordApplet
 {
     class Program
     {
-        private static readonly string CLIENT_ID = "***";
-        private static readonly string CLIENT_SECRET = "***";
-        private static readonly int bgAfter = 1000;
+        private static string CLIENT_ID = "***";
+        private static string CLIENT_SECRET = "***";
 
         private static DiscordIPC client;
 
@@ -91,6 +90,23 @@ namespace LogiDiscordApplet
             lcdApp.PushToForeground();
 
             lcdConnectedChannel.Text = "Finding Discord";
+
+            string clientIDPath = Path.Combine(Directory.GetCurrentDirectory(), @"clientid.txt");
+            string clientSecretPath = Path.Combine(Directory.GetCurrentDirectory(), @"clientsecret.txt");
+
+            if (!File.Exists(clientIDPath)) File.Create(clientIDPath).Close();
+            if (!File.Exists(clientSecretPath)) File.Create(clientSecretPath).Close();
+
+
+            CLIENT_ID = File.ReadAllText(clientIDPath);
+            CLIENT_SECRET = File.ReadAllText(clientSecretPath);
+
+            if(string.IsNullOrEmpty(CLIENT_ID) || string.IsNullOrEmpty(CLIENT_SECRET))
+            {
+                lcdConnectedChannel.Text = "Please fill clientid.txt and clientsecret.txt...";
+                return;
+            }
+
             client = new DiscordIPC(CLIENT_ID);
 
             try
@@ -267,6 +283,11 @@ namespace LogiDiscordApplet
         private static async Task UpdateChannel()
         {
             connectedChanneldata = await client.SendCommandAsync(new GetSelectedVoiceChannel.Args());
+            if (connectedChanneldata == null)
+            {
+                lcdConnectedChannel.Text = "- Disconnected -";
+                return;
+            }
             lcdConnectedChannel.Text = "Connected: " + connectedChanneldata.name;
         }
 
