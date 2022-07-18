@@ -12,10 +12,10 @@ You must be able to see your app's "Client ID". To generate "Client Secret" clic
 Copy "Client ID" and "Client Secret" to the "clientid.txt" and "clientsecret.txt" files in application directory (Ex: C:\Program Files\LogiDiscord\clientid.txt).
 You can then launch "LogiDiscordApplet.exe". It will open Discord app and ask you for a permission. Click authorize.
 
-###Optional
+###### Optional
 You can make the LogiDiscord app launch on the boot by right clicking it's icon on notification area (right side of the taskbar), then selecting "Run on boot".
 
-###To make mute / deafen buttons work:
+###### To make mute / deafen buttons work:
 
 You have to add "LControl + LShift + Numpad *" as "Mute toggle" shortcut in Discord.
 You have to add "LControl + LShift + Numpad -" as "Deafen toggle" shortcut in Discord.
