@@ -1,6 +1,9 @@
 # G15-LogiDiscord
 A WIP Discord status display / controller application for Logitech G15 keyboards
-
+<br/>
+<br/>
+![screenshot](https://raw.githubusercontent.com/ege-adam/G15-LogiDiscord/main/screenshot.PNG),
+- - - -
 This app is highly experimental. Since Discord RPC is not well documented, and always changing; this app is not well coded and will be changed accordingly.
 
 ~~Currently no pre-build binaries. I will upload pre-build binaries after adding "Reading Client-ID/Client-Secret from file" functionality.~~
