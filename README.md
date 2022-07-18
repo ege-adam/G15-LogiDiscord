@@ -24,7 +24,7 @@ You can make the LogiDiscord app launch on the boot by right clicking it's icon 
 
 ###### To make mute / deafen buttons work:
 
-You have to add "LControl + LShift + Numpad *" as "Mute toggle" shortcut in Discord.
-You have to add "LControl + LShift + Numpad -" as "Deafen toggle" shortcut in Discord.
+- You have to add "LControl + LShift + Numpad *" as "Mute toggle" shortcut in Discord.
+- You have to add "LControl + LShift + Numpad -" as "Deafen toggle" shortcut in Discord.
 
 Since in Discord RPC mute/deafen not working stabile. 
